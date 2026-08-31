@@ -485,7 +485,7 @@ function PatientPage({ clinics }) {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-gray-900">{clinic.name}</h3>
-                    {clinic.distanceKm <= 5 && <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">Kwa gaufi · Nearby</span>}
+                    {clinic.distanceKm <= 5 && <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">Gaufi le Nna · Nearby</span>}
                   </div>
                   <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" /> {clinic.district} · {clinic.distanceKm} km</p>
                   <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" /> {clinic.phone}</p>
@@ -557,7 +557,7 @@ function AdminPage({ clinics, setClinics, showToast }) {
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-rose-600 to-pink-700 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold flex items-center gap-2"><ShieldCheck className="w-6 h-6" /> DHMT operations</h1>
-        <p className="text-rose-100 mt-1 italic">Boitekanelo jwa setshaba — See the district before the shortage spreads.</p>
+        <p className="text-rose-100 mt-1 italic">Setshaba shoue be sechaba — See the district before the shortage spreads.</p>
       </div>
 
       {/* District Summary */}
