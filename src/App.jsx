@@ -519,102 +519,185 @@ function PatientPage({ clinics }) {
 // ══════════════════════════════════════════════════════════════
 
 function AdminPage({ clinics, setClinics, showToast }) {
-  const [activeTab, setActiveTab] = useState("shortages");
+  const [activeTab, setActiveTab] = useState("transfer");
   const [filterRisk, setFilterRisk] = useState("all");
   const [transferModal, setTransferModal] = useState(null);
-  const [approvedTransfers, setApprovedTransfers] = useState([]);
+  const [approvedIds, setApprovedIds] = useState([]);
+  const [originalClinics] = useState(clinics);
+  const [transfersLog, setTransfersLog] = useState([]);
+
+  // Generate transfer recommendations dynamically from current clinic state
+  const transferRecommendations = useMemo(() => {
+    const recs = [];
+    clinics.forEach(targetClinic => {
+      Object.entries(targetClinic.medicines).forEach(([medId, med]) => {
+        if (med.status === "out" || med.status === "low") {
+          // Find a source clinic with surplus
+          const source = clinics.find(c => c.id !== targetClinic.id && c.medicines[medId]?.stock > 30 && c.medicines[medId]?.status === "available");
+          if (source) {
+            const medMeta = MEDICINES.find(m => m.id === medId);
+            const sourceStock = source.medicines[medId].stock;
+            const transferQty = Math.min(50, Math.floor(sourceStock * 0.3));
+            const distance = Math.sqrt(Math.pow(source.coords[0] - targetClinic.coords[0], 2) + Math.pow(source.coords[1] - targetClinic.coords[1], 2)) * 111;
+            const rsi = Math.min(100, Math.round(60 + (sourceStock / 10) - distance * 0.5 + (med.status === "out" ? 20 : 5)));
+            const travelMin = Math.round(distance * 1.2);
+            const costPula = Math.round(distance * 3.5 + transferQty * 0.5);
+            const id = `${source.id}-${targetClinic.id}-${medId}`;
+            recs.push({
+              id, sourceClinicId: source.id, targetClinicId: targetClinic.id,
+              medicineId: medId, transferQty, rsi, distance: Math.round(distance * 10) / 10,
+              travelMin, costPula, risk: med.status === "out" ? "CRITICAL" : "HIGH",
+              sourceName: source.name, targetName: targetClinic.name,
+              medicineName: medMeta?.name || medId, unit: medMeta?.unit || "units",
+              reason: `${targetClinic.name} ${med.status === "out" ? "out of" : "low on"} ${medMeta?.name}; ${source.name} has ${sourceStock} ${medMeta?.unit}`
+            });
+          }
+        }
+      });
+    });
+    return recs.sort((a, b) => (a.risk === "CRITICAL" ? 0 : 1) - (b.risk === "CRITICAL" ? 0 : 1) || b.rsi - a.rsi);
+  }, [clinics]);
+
+  const activeRecommendations = transferRecommendations.filter(r => !approvedIds.includes(r.id));
+  const filteredRecs = activeRecommendations.filter(r => filterRisk === "all" || r.risk === filterRisk);
 
   const stats = useMemo(() => {
     let out = 0, low = 0, avail = 0;
     clinics.forEach(c => Object.values(c.medicines).forEach(m => { if (m.status === "out") out++; else if (m.status === "low") low++; else avail++; }));
-    return { out, low, avail, total: out + low + avail, reporting: clinics.length, totalClinics: 6 };
+    return { out, low, avail, total: out + low + avail, reporting: clinics.length };
   }, [clinics]);
 
-  const filteredShortages = EMERGING_SHORTAGES.filter(s => {
-    if (filterRisk !== "all" && s.risk !== filterRisk) return false;
-    return !approvedTransfers.some(a => a.targetClinicId === s.clinicId && a.medicineId === s.medicineId);
-  });
-
-  const handleApprove = (transfer) => {
-    const { sourceClinicId, targetClinicId, medicineId, transferQty } = transfer;
-    setApprovedTransfers(prev => [...prev, { sourceClinicId, targetClinicId, medicineId }]);
+  const handleApprove = (rec) => {
+    setApprovedIds(prev => [...prev, rec.id]);
+    setTransfersLog(prev => [...prev, { ...rec, timestamp: new Date().toLocaleTimeString() }]);
     setClinics(prev => prev.map(c => {
-      if (c.id === sourceClinicId) {
-        const med = c.medicines[medicineId];
-        const ns = Math.max(0, med.stock - transferQty);
-        return { ...c, medicines: { ...c.medicines, [medicineId]: { ...med, stock: ns, status: ns === 0 ? "out" : ns < 20 ? "low" : "available", lastUpdated: "Just now", trend: "down" } } };
+      if (c.id === rec.sourceClinicId) {
+        const med = c.medicines[rec.medicineId];
+        const ns = Math.max(0, med.stock - rec.transferQty);
+        return { ...c, medicines: { ...c.medicines, [rec.medicineId]: { ...med, stock: ns, status: ns === 0 ? "out" : ns < 20 ? "low" : "available", lastUpdated: "Just now", trend: "down" } } };
       }
-      if (c.id === targetClinicId) {
-        const med = c.medicines[medicineId];
-        const ns = med.stock + transferQty;
-        return { ...c, medicines: { ...c.medicines, [medicineId]: { ...med, stock: ns, status: "available", lastUpdated: "Just now", trend: "up" } } };
+      if (c.id === rec.targetClinicId) {
+        const med = c.medicines[rec.medicineId];
+        const ns = med.stock + rec.transferQty;
+        return { ...c, medicines: { ...c.medicines, [rec.medicineId]: { ...med, stock: ns, status: "available", lastUpdated: "Just now", trend: "up" } } };
       }
       return c;
     }));
+    showToast("Transfer logged", `${rec.targetName} ${rec.medicineName} stock updated to ${(clinics.find(c => c.id === rec.targetClinicId)?.medicines[rec.medicineId]?.stock || 0) + rec.transferQty} ${rec.unit}.`);
+  };
+
+  const handleReset = () => {
+    setClinics(JSON.parse(JSON.stringify(originalClinics)));
+    setApprovedIds([]);
+    setTransfersLog([]);
+    showToast("Simulation reset", "All clinic stock levels restored to initial state.");
   };
 
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-rose-600 to-pink-700 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><ShieldCheck className="w-6 h-6" /> DHMT operations</h1>
-        <p className="text-rose-100 mt-1 italic">Setshaba shoue be sechaba — See the district before the shortage spreads.</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><ShieldCheck className="w-6 h-6" /> Transfer Command Center</h1>
+            <p className="text-rose-100 mt-1 italic">Setshaba shoue be sechaba — See the district before the shortage spreads.</p>
+          </div>
+          <button onClick={handleReset} className="bg-white/10 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/20 transition-colors flex items-center gap-2">
+            <RefreshCw className="w-4 h-4" /> Reset Simulation
+          </button>
+        </div>
       </div>
 
       {/* District Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
           <p className="text-3xl font-bold text-gray-900">{Math.round((stats.avail / stats.total) * 100)}%</p>
           <p className="text-xs text-gray-500 mt-1">Availability</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-          <p className="text-3xl font-bold text-blue-600">{stats.reporting}<span className="text-base text-gray-400"> / {stats.totalClinics}</span></p>
-          <p className="text-xs text-gray-500 mt-1">Reporting</p>
+          <p className="text-3xl font-bold text-emerald-600">{stats.avail}</p>
+          <p className="text-xs text-gray-500 mt-1">Available</p>
+        </div>
+        <div className="bg-white rounded-xl border border-amber-200 p-4 text-center">
+          <p className="text-3xl font-bold text-amber-600">{stats.low}</p>
+          <p className="text-xs text-gray-500 mt-1">Low Stock</p>
         </div>
         <div className="bg-white rounded-xl border border-red-200 p-4 text-center">
           <p className="text-3xl font-bold text-red-600">{stats.out}</p>
           <p className="text-xs text-gray-500 mt-1">Stock-outs</p>
         </div>
-        <div className="bg-white rounded-xl border border-amber-200 p-4 text-center">
-          <p className="text-3xl font-bold text-amber-600">{EMERGING_SHORTAGES.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Emerging</p>
+        <div className="bg-white rounded-xl border border-blue-200 p-4 text-center">
+          <p className="text-3xl font-bold text-blue-600">{activeRecommendations.length}</p>
+          <p className="text-xs text-gray-500 mt-1">Pending Transfers</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-200 pb-1">
-        {[{id:"overview", label:"Overview"}, {id:"map", label:"District Map"}, {id:"shortages", label:"Emerging Shortages"}, {id:"stock", label:"All Stock"}].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === tab.id ? "bg-white border border-gray-200 border-b-white text-gray-900 -mb-px" : "text-gray-500 hover:text-gray-700"}`}>{tab.label}</button>
+        {[{id:"transfer", label:`Transfers (${activeRecommendations.length})`, icon: Truck}, {id:"map", label:"District Map", icon: Globe2}, {id:"log", label:`Log (${transfersLog.length})`, icon: Activity}].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${activeTab === tab.id ? "bg-white border border-gray-200 border-b-white text-gray-900 -mb-px" : "text-gray-500 hover:text-gray-700"}`}><tab.icon className="w-4 h-4" /> {tab.label}</button>
         ))}
       </div>
 
-      {/* Overview Tab */}
-      {activeTab === "overview" && (
+      {/* Transfer Recommendations Tab */}
+      {activeTab === "transfer" && (
         <div className="space-y-4">
-          {clinics.map(clinic => {
-            const outMeds = Object.entries(clinic.medicines).filter(([,m]) => m.status === "out").length;
-            const lowMeds = Object.entries(clinic.medicines).filter(([,m]) => m.status === "low").length;
-            return (
-              <div key={clinic.id} className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: getMarkerColor(clinic) }} />
-                    <h3 className="font-semibold text-sm">{clinic.name}</h3>
-                    <span className="text-xs text-gray-400">{clinic.type}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    {outMeds > 0 && <span className="text-red-600 font-medium">{outMeds} out</span>}
-                    {lowMeds > 0 && <span className="text-amber-600 font-medium">{lowMeds} low</span>}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {Object.entries(clinic.medicines).slice(0, 4).map(([medId, med]) => {
-                    const meta = MEDICINES.find(m => m.id === medId);
-                    return <div key={medId} className="bg-gray-50 rounded-lg p-2"><p className="text-xs font-medium text-gray-700 truncate">{meta?.name || medId}</p><div className="flex items-center justify-between mt-1"><span className="text-xs text-gray-500">{med.stock} {med.unit}</span><StatusBadge status={med.status} /></div></div>;
-                  })}
-                </div>
+          {activeRecommendations.length === 0 ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-8 text-center">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-emerald-800">All transfers complete</h3>
+              <p className="text-sm text-emerald-600 mt-1">All recommended transfers have been approved. District stock levels are optimized.</p>
+              <button onClick={handleReset} className="mt-4 bg-emerald-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-emerald-700 flex items-center gap-2 mx-auto">
+                <RefreshCw className="w-4 h-4" /> Reset Simulation
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                  <option value="all">All Priorities ({activeRecommendations.length})</option>
+                  <option value="CRITICAL">Critical</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                </select>
               </div>
-            );
-          })}
+              {filteredRecs.map(rec => (
+                <div key={rec.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${rec.risk === "CRITICAL" ? "bg-red-100 text-red-700" : rec.risk === "HIGH" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>{rec.risk}</span>
+                        <span className="text-sm font-semibold text-gray-900">{rec.medicineName}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                          <Building2 className="w-3 h-3 text-emerald-600" />
+                          <span className="font-medium">{rec.sourceName}</span>
+                          <span className="text-emerald-700 text-xs">({clinics.find(c => c.id === rec.sourceClinicId)?.medicines[rec.medicineId]?.stock || 0} {rec.unit})</span>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
+                        <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-200">
+                          <Building2 className="w-3 h-3 text-red-600" />
+                          <span className="font-medium">{rec.targetName}</span>
+                          <span className="text-red-700 text-xs">({clinics.find(c => c.id === rec.targetClinicId)?.medicines[rec.medicineId]?.stock || 0} {rec.unit})</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">{rec.reason}</p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                        <span>RSI: <span className="font-bold text-blue-700">{rec.rsi}/100</span></span>
+                        <span>{rec.transferQty} {rec.unit}</span>
+                        <span>{rec.distance} km · ~{rec.travelMin} min</span>
+                        <span>P{rec.costPula}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => handleApprove(rec)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shrink-0 ml-4">
+                      <CheckCircle2 className="w-4 h-4" /> Approve
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 
@@ -643,76 +726,42 @@ function AdminPage({ clinics, setClinics, showToast }) {
             </MapContainer>
           </div>
           <div className="p-3 border-t border-gray-200 flex items-center gap-4 text-xs text-gray-600">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-500" /> Available (all stocked)</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-500" /> Available</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber-500" /> Low / emerging risk</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500" /> 2+ stock-outs</span>
           </div>
         </div>
       )}
 
-      {/* Shortages Tab */}
-      {activeTab === "shortages" && (
+      {/* Transfer Log Tab */}
+      {activeTab === "log" && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
-              <option value="all">All Risks ({EMERGING_SHORTAGES.length})</option>
-              <option value="CRITICAL">Critical</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-            </select>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Medicine</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Clinic</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Days Left</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Risk</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredShortages.map((s, i) => {
-                  const med = MEDICINES.find(m => m.id === s.medicineId);
-                  const clinic = clinics.find(c => c.id === s.clinicId);
-                  const source = clinics.find(c => c.id !== s.clinicId && c.medicines[s.medicineId]?.status === "available");
-                  const transferQty = Math.min(50, source?.medicines[s.medicineId]?.stock || 0);
-                  return (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{med?.name}</td>
-                      <td className="px-4 py-3 text-gray-600">{clinic?.name?.split(" ").slice(0, 2).join(" ")}</td>
-                      <td className="px-4 py-3"><span className={`font-bold ${s.daysRemaining === 0 ? "text-red-600" : s.daysRemaining <= 2 ? "text-orange-600" : "text-amber-600"}`}>{s.daysRemaining === 0 ? "OUT" : s.daysRemaining + "d"}</span></td>
-                      <td className="px-4 py-3"><RiskBadge risk={s.risk} /></td>
-                      <td className="px-4 py-3">
-                        <button onClick={() => source && setTransferModal({ sourceClinicId: source.id, targetClinicId: s.clinicId, medicineId: s.medicineId, transferQty, reason: `${clinic?.name} out of ${med?.name}; ${source?.name} has ${source?.medicines[s.medicineId]?.stock} ${med?.unit}`, urgency: s.risk.toLowerCase(), distanceKm: Math.abs((source?.coords[0] || 0) - (clinic?.coords[0] || 0)) * 111 })} disabled={!source} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-1 transition-colors">
-                          <Truck className="w-3 h-3" /> Recommend Transfer
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* All Stock Tab */}
-      {activeTab === "stock" && (
-        <div className="space-y-4">
-          {clinics.map(clinic => (
-            <div key={clinic.id} className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="flex items-center gap-2 mb-3"><span className="w-3 h-3 rounded-full" style={{ backgroundColor: getMarkerColor(clinic) }} /><h3 className="font-semibold text-sm">{clinic.name}</h3></div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {Object.entries(clinic.medicines).map(([medId, med]) => {
-                  const meta = MEDICINES.find(m => m.id === medId);
-                  return <div key={medId} className="bg-gray-50 rounded-lg p-2"><p className="text-xs font-medium text-gray-700 truncate">{meta?.name}</p><p className="text-sm font-bold text-gray-900 mt-1">{med.stock} <span className="text-xs font-normal text-gray-500">{med.unit}</span></p><StatusBadge status={med.status} /></div>;
-                })}
-              </div>
+          {transfersLog.length === 0 ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
+              <Activity className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">No transfers approved yet. Go to the Transfers tab to approve recommendations.</p>
             </div>
-          ))}
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+              <table className="w-full text-sm min-w-[600px]">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>{["Time","Medicine","From","To","Qty","Status"].map(h => <th key={h} className="text-left px-4 py-3 font-medium text-gray-600">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {transfersLog.map((log, i) => (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-500">{log.timestamp}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{log.medicineName}</td>
+                      <td className="px-4 py-3 text-gray-600">{log.sourceName}</td>
+                      <td className="px-4 py-3 text-gray-600">{log.targetName}</td>
+                      <td className="px-4 py-3 text-gray-700">{log.transferQty} {log.unit}</td>
+                      <td className="px-4 py-3"><span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-medium">Approved</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -720,10 +769,6 @@ function AdminPage({ clinics, setClinics, showToast }) {
     </div>
   );
 }
-
-// ══════════════════════════════════════════════════════════════
-// CLINIC STAFF PAGE
-// ══════════════════════════════════════════════════════════════
 
 function ClinicStaffPage({ clinics, showToast }) {
   const [activeTab, setActiveTab] = useState("ocr");
