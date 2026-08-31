@@ -583,7 +583,7 @@ function AdminPage({ clinics, setClinics, showToast }) {
       }
       return c;
     }));
-    showToast("Transfer logged", `${rec.targetName} ${rec.medicineName} stock updated to ${(clinics.find(c => c.id === rec.targetClinicId)?.medicines[rec.medicineId]?.stock || 0) + rec.transferQty} ${rec.unit}.`);
+    showToast("Transfer logged", `${rec.targetName} ${rec.medicineName} stock updated to ${rec.transferQty} ${rec.unit}.`);
   };
 
   const handleReset = () => {
