@@ -429,7 +429,7 @@ function PatientPage({ clinics }) {
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold flex items-center gap-2"><Pill className="w-6 h-6" /> Find essential medicines</h1>
-        <p className="text-blue-100 mt-1">Know before you go. <span className="italic">Setswana: Tseba pele o tsena.</span></p>
+        <p className="text-blue-100 mt-1">Know before you go. <span className="italic">Setswana: Tseba pele o tsamaye.</span></p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -735,7 +735,7 @@ function ClinicStaffPage({ clinics, showToast }) {
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold flex items-center gap-2"><UserCheck className="w-6 h-6" /> Clinic staff</h1>
-        <p className="text-emerald-100 mt-1 italic">Any channel, any phone. <span className="italic">Setswana: Motheo omongwalo, kgakololoo.</span></p>
+        <p className="text-emerald-100 mt-1 italic">Any channel, any phone. <span className="italic">Setswana: Ka mokgwa ofe le ofe, ka fono epe.</span></p>
       </div>
 
       {/* Primary Channels */}
@@ -901,7 +901,7 @@ function DataSourcesPage() {
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-violet-600 to-purple-700 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold flex items-center gap-2"><Database className="w-6 h-6" /> Open data</h1>
-        <p className="text-violet-100 mt-1 italic">Powered by named sources. <span className="italic">Setswana: E na le mantswe a a tseweng.</span></p>
+        <p className="text-violet-100 mt-1 italic">Powered by named sources. <span className="italic">Setswana: E thehilwe ke dintsho tse di tsegweng.</span></p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -967,7 +967,7 @@ function ForecastingPage() {
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold flex items-center gap-2"><Thermometer className="w-6 h-6" /> Climate intelligence</h1>
-        <p className="text-orange-100 mt-1 italic">Boitekanelo jwa maemo a bosa — Predict demand before it spikes.</p>
+        <p className="text-orange-100 mt-1 italic">Boitekanelo jwa maemo a bosigo — Predict demand before it spikes.</p>
       </div>
 
       {/* Toggle */}
