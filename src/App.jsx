@@ -129,23 +129,23 @@ const INITIAL_AUDIT_TRAIL = [
 ];
 
 const SAMPLE_OCR = [
-  { id: "ocr-1", title: "Mogoditshane Pharmacy Tally", badge: "Pharmacy Log", dateStr: "Captured 10 mins ago via WhatsApp",
-    preview: "MOGODITSHANE DISPENSARY TALLY\n------------------------------\n1. Metformin 500mg  [ 150 tab ]  Exp: 03/27\n2. Paracetamol 500mg [ 200 tab ] Exp: 11/26",
+  { id: "ocr-1", title: "Mogoditshane Tally", badge: "Pharmacy Log", dateStr: "Captured 10 mins ago via WhatsApp",
+    preview: "MOGODITSHANE PRIMARY HOSPITAL\nDISPENSARY TALLY SHEET\n------------------------------\n1. Metformin 500mg   [ 150 tab ]  Exp: 03/27\n2. Paracetamol 500mg [ 200 tab ]  Exp: 11/26",
     extracted: [
       { medicine: "Metformin 500mg", medicineId: "metformin-500mg", qty: 150, expiry: "2027-03-15", confidence: 94, isLow: false },
       { medicine: "Paracetamol 500mg", medicineId: "paracetamol-500mg", qty: 200, expiry: "2026-11-20", confidence: 67, isLow: true, reason: "Smudged handwritten numeral on row 2" }
     ]},
-  { id: "ocr-2", title: "Gabane Health Centre Stock Card", badge: "Bin Card OCR", dateStr: "Captured 25 mins ago via Camera Upload",
-    preview: "GABANE CLINIC - BIN LEDGER #04\n------------------------------\nSalbutamol Inhalers : 65 units (OK)\nO.R.S. Sachets      : 140 units (OK)",
+  { id: "ocr-2", title: "Gabane Tally", badge: "Bin Card OCR", dateStr: "Captured 25 mins ago via Camera Upload",
+    preview: "GABANE CLINIC - STOCK TALLY\n------------------------------\n1. Amoxicillin 250mg  [  80 cap ]  Exp: 05/27\n2. ORS Sachets        [ 500 sach ] Exp: 01/28",
     extracted: [
-      { medicine: "Salbutamol 100mcg", medicineId: "salbutamol-100mcg", qty: 65, expiry: "2026-08-30", confidence: 96, isLow: false },
-      { medicine: "ORS", medicineId: "ors", qty: 140, expiry: "2027-01-10", confidence: 91, isLow: false }
+      { medicine: "Amoxicillin 250mg", medicineId: "amoxicillin-250mg", qty: 80, expiry: "2027-05-18", confidence: 89, isLow: false },
+      { medicine: "ORS", medicineId: "ors", qty: 500, expiry: "2028-01-10", confidence: 92, isLow: false }
     ]},
-  { id: "ocr-3", title: "Thamaga District Delivery Voucher", badge: "CMS Dispatch", dateStr: "Captured 1h ago via Web Portal",
-    preview: "CENTRAL MEDICAL STORES VOUCHER\n------------------------------\nInsulin Regular 100IU : 45 vials\nAmoxicillin 250mg     : 120 caps (??)",
+  { id: "ocr-3", title: "Kopong Tally", badge: "CMS Dispatch", dateStr: "Captured 1h ago via Web Portal",
+    preview: "KOPONG CLINIC - DELIVERY RECEIPT\n------------------------------\n1. Insulin Regular   [  30 vial ]  Exp: 12/25\n2. Atenolol 50mg     [  45 tab  ]  Exp: 08/26",
     extracted: [
-      { medicine: "Insulin (Regular)", medicineId: "insulin-regular", qty: 45, expiry: "2025-12-31", confidence: 88, isLow: false },
-      { medicine: "Amoxicillin 250mg", medicineId: "amoxicillin-250mg", qty: 120, expiry: "2027-05-18", confidence: 54, isLow: true, reason: "Folded corner obscured batch verification stamp" }
+      { medicine: "Insulin (Regular)", medicineId: "insulin-regular", qty: 30, expiry: "2025-12-31", confidence: 71, isLow: true, reason: "Low confidence — handwritten quantity may be 36" },
+      { medicine: "Atenolol 50mg", medicineId: "atenolol-50mg", qty: 45, expiry: "2026-08-30", confidence: 55, isLow: true, reason: "Batch stamp partially illegible" }
     ]}
 ];
 
@@ -272,7 +272,7 @@ function TransferModal({ transfer, clinics, onClose, onApprove, showToast }) {
         </div>
 
         <div className="flex gap-3">
-          <button onClick={() => { onApprove(transfer); onClose(); showToast("Transfer Approved", `${transfer.transferQty} ${med?.unit} of ${med?.name} dispatched from ${source?.name} to ${target?.name}`); }} className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 flex items-center justify-center gap-2 transition-colors">
+          <button onClick={() => { onApprove(transfer); onClose(); showToast("Transfer logged", `${target?.name} ${med?.name} stock updated to ${(target?.medicines[transfer.medicineId]?.stock || 0) + transfer.transferQty} ${med?.unit}.`); }} className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 flex items-center justify-center gap-2 transition-colors">
             <CheckCircle2 className="w-4 h-4" /> Approve Transfer
           </button>
           <button onClick={onClose} className="px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">Dismiss</button>
@@ -522,6 +522,7 @@ function AdminPage({ clinics, setClinics, showToast }) {
   const [activeTab, setActiveTab] = useState("overview");
   const [filterRisk, setFilterRisk] = useState("all");
   const [transferModal, setTransferModal] = useState(null);
+  const [approvedTransfers, setApprovedTransfers] = useState([]);
 
   const stats = useMemo(() => {
     let out = 0, low = 0, avail = 0;
@@ -529,10 +530,14 @@ function AdminPage({ clinics, setClinics, showToast }) {
     return { out, low, avail, total: out + low + avail, reporting: clinics.length, totalClinics: 6 };
   }, [clinics]);
 
-  const filteredShortages = EMERGING_SHORTAGES.filter(s => filterRisk === "all" || s.risk === filterRisk);
+  const filteredShortages = EMERGING_SHORTAGES.filter(s => {
+    if (filterRisk !== "all" && s.risk !== filterRisk) return false;
+    return !approvedTransfers.some(a => a.targetClinicId === s.clinicId && a.medicineId === s.medicineId);
+  });
 
   const handleApprove = (transfer) => {
     const { sourceClinicId, targetClinicId, medicineId, transferQty } = transfer;
+    setApprovedTransfers(prev => [...prev, { sourceClinicId, targetClinicId, medicineId }]);
     setClinics(prev => prev.map(c => {
       if (c.id === sourceClinicId) {
         const med = c.medicines[medicineId];
@@ -775,46 +780,57 @@ function ClinicStaffPage({ clinics, showToast }) {
 
       {/* OCR Tab */}
       {activeTab === "ocr" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <h3 className="font-semibold text-sm text-gray-700">Captured Documents</h3>
+        <div className="space-y-4">
+          {/* Drop Zone */}
+          <div onClick={() => { setSelectedSample(SAMPLE_OCR[0]); setOcrConfirmed(false); }} className="border-2 border-dashed border-blue-300 bg-blue-50/50 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all">
+            <Upload className="w-10 h-10 text-blue-400 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-blue-700">Drop a tally sheet here</p>
+            <p className="text-xs text-blue-500 mt-1">or click to scan a sample document</p>
+          </div>
+
+          {/* 3 Clickable Sample Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {SAMPLE_OCR.map(s => (
-              <button key={s.id} onClick={() => { setSelectedSample(s); setOcrConfirmed(false); }} className={`w-full text-left p-3 rounded-xl border transition-all ${selectedSample.id === s.id ? "border-blue-500 bg-blue-50 shadow-sm" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{s.badge}</span>
-                <p className="text-sm font-medium mt-1">{s.title}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{s.dateStr}</p>
+              <button key={s.id} onClick={() => { setSelectedSample(s); setOcrConfirmed(false); }} className={`text-left p-4 rounded-xl border-2 transition-all ${selectedSample.id === s.id ? "border-blue-500 bg-blue-50 shadow-md" : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+                  <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{s.badge}</span>
+                </div>
+                <p className="text-sm font-semibold text-gray-900">{s.title}</p>
+                <p className="text-xs text-gray-500 mt-1">{s.dateStr}</p>
+                <p className="text-xs text-blue-600 mt-2 font-medium">Click to scan →</p>
               </button>
             ))}
           </div>
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-purple-100 p-2 rounded-lg"><Sparkles className="w-5 h-5 text-purple-600" /></div>
-                <div><h3 className="font-semibold text-gray-900">{selectedSample.title}</h3><p className="text-xs text-gray-500">{selectedSample.dateStr}</p></div>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm text-gray-700 whitespace-pre-line border border-gray-200">{selectedSample.preview}</div>
-              <div className="mt-4 space-y-2">
-                <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1"><Zap className="w-4 h-4 text-yellow-500" /> AI-Extracted Data</h4>
-                {selectedSample.extracted.map((item, i) => (
-                  <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${item.isLow ? "bg-amber-50 border-amber-200" : "bg-white border-gray-200"}`}>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{item.medicine}</p>
-                      <p className="text-xs text-gray-500">Qty: {item.qty} · Exp: {item.expiry}</p>
-                      {item.reason && <p className="text-xs text-amber-700 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {item.reason}</p>}
-                    </div>
-                    <ConfidenceMeter value={item.confidence} />
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><HelpCircle className="w-3 h-3" /> Human confirmation required before ledger entry</p>
-              {!ocrConfirmed ? (
-                <button onClick={() => { setOcrConfirmed(true); showToast("OCR Confirmed", "Stock data submitted to the shared ledger."); }} className="mt-4 w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" /> Confirm & Add to Ledger
-                </button>
-              ) : (
-                <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-emerald-600" /><span className="text-sm text-emerald-700 font-medium">Submitted successfully</span></div>
-              )}
+
+          {/* Extraction Results */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-purple-100 p-2 rounded-lg"><Sparkles className="w-5 h-5 text-purple-600" /></div>
+              <div><h3 className="font-semibold text-gray-900">{selectedSample.title}</h3><p className="text-xs text-gray-500">{selectedSample.dateStr}</p></div>
             </div>
+            <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm text-gray-700 whitespace-pre-line border border-gray-200">{selectedSample.preview}</div>
+            <div className="mt-4 space-y-2">
+              <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1"><Zap className="w-4 h-4 text-yellow-500" /> AI-Extracted Data</h4>
+              {selectedSample.extracted.map((item, i) => (
+                <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${item.isLow ? "bg-amber-50 border-amber-200" : "bg-white border-gray-200"}`}>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{item.medicine}</p>
+                    <p className="text-xs text-gray-500">Qty: {item.qty} · Exp: {item.expiry}</p>
+                    {item.reason && <p className="text-xs text-amber-700 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {item.reason}</p>}
+                  </div>
+                  <ConfidenceMeter value={item.confidence} />
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><HelpCircle className="w-3 h-3" /> Human confirmation required before ledger entry</p>
+            {!ocrConfirmed ? (
+              <button onClick={() => { setOcrConfirmed(true); showToast("Added to review queue", `${selectedSample.title} — data submitted for verification.`); }} className="mt-4 w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4" /> Confirm & Add to Ledger
+              </button>
+            ) : (
+              <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-emerald-600" /><span className="text-sm text-emerald-700 font-medium">Added to review queue</span></div>
+            )}
           </div>
         </div>
       )}
@@ -964,14 +980,17 @@ function ForecastingPage() {
               <p className="text-xs text-gray-500">Toggle between normal and extreme heat conditions</p>
             </div>
           </div>
-          <button onClick={() => setMode(m => m === "normal" ? "heatwave" : "normal")} className={`relative w-20 h-10 rounded-full transition-colors ${mode === "heatwave" ? "bg-red-500" : "bg-gray-300"}`}>
-            <span className={`absolute top-1 w-8 h-8 bg-white rounded-full shadow transition-transform ${mode === "heatwave" ? "translate-x-11" : "translate-x-1"}`} />
-          </button>
+          {mode === "normal" ? (
+            <button onClick={() => setMode("heatwave")} className="bg-red-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-red-700 transition-colors flex items-center gap-2 shadow-md">
+              <Flame className="w-4 h-4" /> Trigger Heatwave Simulation
+            </button>
+          ) : (
+            <button onClick={() => setMode("normal")} className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-md">
+              <RefreshCw className="w-4 h-4" /> Return to Normal
+            </button>
+          )}
         </div>
-        <div className="mt-3 flex items-center gap-3">
-          <span className="text-sm text-gray-600 font-medium">Trigger Heatwave Simulation</span>
-          {mode === "heatwave" && <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full font-medium">Active</span>}
-        </div>
+        {mode === "heatwave" && <div className="mt-3"><span className="text-xs text-red-600 bg-red-50 px-3 py-1 rounded-full font-medium">🔥 Simulation Active</span></div>}
       </div>
 
       {/* Alert Banner */}
