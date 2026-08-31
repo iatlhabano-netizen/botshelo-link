@@ -519,7 +519,7 @@ function PatientPage({ clinics }) {
 // ══════════════════════════════════════════════════════════════
 
 function AdminPage({ clinics, setClinics, showToast }) {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("shortages");
   const [filterRisk, setFilterRisk] = useState("all");
   const [transferModal, setTransferModal] = useState(null);
   const [approvedTransfers, setApprovedTransfers] = useState([]);
