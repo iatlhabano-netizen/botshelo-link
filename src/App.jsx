@@ -986,7 +986,7 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-200 pb-1">
-        {[{id:"ocr", label:"OCR Scanner", icon: FileSpreadsheet}, {id:"manual", label:"Manual Entry", icon: FileText}, {id:"sms", label:"SMS Gateway", icon: MessageSquare}, {id:"audit", label:"Audit Trail", icon: Activity}].map(tab => (
+        {[{id:"ocr", label:"OCR Scanner", icon: FileSpreadsheet}, {id:"manual", label:"Manual Entry", icon: FileText}, {id:"sms", label:"SMS Gateway", icon: MessageSquare}, {id:"fb", label:"Messenger", icon: MessageSquare}, {id:"audit", label:"Audit Trail", icon: Activity}].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${activeTab === tab.id ? "bg-white border border-gray-200 border-b-white text-gray-900 -mb-px" : "text-gray-500 hover:text-gray-700"}`}><tab.icon className="w-4 h-4" /> {tab.label}</button>
         ))}
       </div>
@@ -1157,6 +1157,126 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+
+      {/* Facebook Messenger Tab */}
+      {activeTab === "fb" && (
+        <div className="space-y-5">
+          {/* Channel Info */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
+            <h3 className="font-bold flex items-center gap-2"><MessageSquare className="w-5 h-5" /> Facebook Messenger — channel preview</h3>
+            <p className="text-blue-100 text-sm mt-1">Patients search medicine via Facebook Messenger using a P5 social bundle — no data plan required. Clinic staff submit stock updates in the same structured format. Same ledger, one more channel.</p>
+          </div>
+
+          {/* Zero-rating callout */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+            <Zap className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-blue-800">The P5 social bundle advantage</p>
+              <p className="text-xs text-blue-700 mt-1">Facebook and WhatsApp bundles are the primary way most Batswana get online. The web app needs open data. The Messenger bot works on a P5 social bundle. Text-only responses keep it fast on the cheapest connections.</p>
+            </div>
+          </div>
+
+          {/* Chat Mockup — Patient Search */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 bg-blue-50 flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center text-white text-xs font-bold">BL</div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Botshelo Link</p>
+                <p className="text-[10px] text-gray-500">Health bot · Typically replies instantly</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-4 max-h-[500px] overflow-y-auto">
+              {/* Message 1: User */}
+              <div className="flex justify-end">
+                <div className="bg-blue-600 text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%]">
+                  <p className="text-sm">Is Metformin available near Gabane?</p>
+                </div>
+              </div>
+              {/* Message 2: Bot */}
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[85%]">
+                  <p className="text-sm text-gray-800">✅ <strong>Gabane Clinic</strong> — 120 tablets in stock</p>
+                  <p className="text-xs text-gray-500 mt-1">📍 12.8 km · Updated 1h ago · 94% match score</p>
+                  <p className="text-xs text-gray-400 mt-2 italic">Verify with clinic before travelling.</p>
+                </div>
+              </div>
+              {/* Message 3: User */}
+              <div className="flex justify-end">
+                <div className="bg-blue-600 text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%]">
+                  <p className="text-sm">What about insulin?</p>
+                </div>
+              </div>
+              {/* Message 4: Bot */}
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[85%]">
+                  <p className="text-sm text-gray-800">⚠️ <strong>Insulin (Regular)</strong> out of stock at Gabane</p>
+                  <p className="text-xs text-gray-500 mt-1">Nearest: <strong>Thamaga Hospital</strong> — 65 vials · 38 km</p>
+                  <p className="text-xs text-gray-500">Updated 45m ago · 96% match score</p>
+                  <div className="mt-2 flex gap-2">
+                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">📍 Directions</span>
+                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">📞 Call clinic</span>
+                  </div>
+                </div>
+              </div>
+              {/* Message 5: User */}
+              <div className="flex justify-end">
+                <div className="bg-blue-600 text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%]">
+                  <p className="text-sm">Met-500 Gabane 120 2027-03-15</p>
+                </div>
+              </div>
+              {/* Message 6: Bot — clinic staff */}
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[85%]">
+                  <p className="text-sm text-gray-800">📋 <strong>Stock update received</strong></p>
+                  <p className="text-xs text-gray-500 mt-1">Facility: Gabane Clinic</p>
+                  <p className="text-xs text-gray-500">Medicine: Metformin 500mg · 120 tablets</p>
+                  <p className="text-xs text-gray-500">Expiry: 2027-03-15</p>
+                  <p className="text-xs text-gray-400 mt-2 italic">Added to review queue. Human confirmation required before ledger entry.</p>
+                </div>
+              </div>
+              {/* Quick replies */}
+              <div className="flex justify-center gap-2 flex-wrap">
+                {["💊 Check Medicine", "🏥 Nearest Clinic", "📊 Stock Update", "❓ Help"].map(btn => (
+                  <span key={btn} className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-3 py-1.5 cursor-pointer hover:bg-blue-100 transition-colors">{btn}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* How it works */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <h4 className="font-semibold text-gray-900 mb-3">How it works in production</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-start gap-2">
+                <span className="text-lg">1️⃣</span>
+                <div>
+                  <p className="font-medium text-gray-900">Patient searches</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Messages the Facebook Page. Bot replies with nearest available stock.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-lg">2️⃣</span>
+                <div>
+                  <p className="font-medium text-gray-900">Clinic staff updates</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Sends structured message or photo. Bot parses and queues for confirmation.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-lg">3️⃣</span>
+                <div>
+                  <p className="font-medium text-gray-900">DHMT gets alerts</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Critical stock-outs push-message district admins with a link to the Command Center.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-3 bg-gray-50 rounded-xl text-center">
+            <p className="text-xs text-gray-500">Messenger channel requires Meta App Review for public access. For the hackathon demo, judges can be added as testers. Built on the same stock data and parsing logic as the web app and SMS Gateway.</p>
+          </div>
         </div>
       )}
 
