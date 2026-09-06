@@ -389,7 +389,7 @@ function LandingPage({ navigate }) {
       {/* Data → Action Flow */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4 text-center">From data to action</h2>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-0">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-0 overflow-x-auto">
           {[
             { icon: "📊", label: "Open Data", desc: "Facility, climate, population" },
             { icon: "⚠️", label: "Risk Detected", desc: "Shortage predicted" },
@@ -712,7 +712,7 @@ function AdminPage({ clinics, setClinics, showToast }) {
         </div>
         <div className="divide-y divide-gray-100">
           {medicineRisk.map(r => (
-            <div key={r.medicineId} className={`px-5 py-3 flex items-center justify-between ${r.riskLabel === "CRITICAL" ? "bg-red-50/50" : r.riskLabel === "HIGH" ? "bg-amber-50/50" : ""}`}>
+            <div key={r.medicineId} className={`px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 ${r.riskLabel === "CRITICAL" ? "bg-red-50/50" : r.riskLabel === "HIGH" ? "bg-amber-50/50" : ""}`}>
               <div className="flex items-center gap-3">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${r.riskLabel === "CRITICAL" ? "bg-red-500" : r.riskLabel === "HIGH" ? "bg-amber-500" : "bg-emerald-500"}`}></span>
                 <div>
@@ -720,11 +720,15 @@ function AdminPage({ clinics, setClinics, showToast }) {
                   <p className="text-xs text-gray-500">{r.totalStock} {r.unit} across {r.clinics} facilities</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-xs">
-                {r.outClinics > 0 && <span className="text-red-600 font-medium">{r.outClinics} stock-out{r.outClinics > 1 ? "s" : ""}</span>}
-                {r.lowClinics > 0 && <span className="text-amber-600 font-medium">{r.lowClinics} low</span>}
-                <span className={`px-2 py-0.5 rounded-full font-bold ${r.riskLabel === "CRITICAL" ? "bg-red-100 text-red-700" : r.riskLabel === "HIGH" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{r.riskLabel}</span>
-                <span className="text-gray-600 font-medium w-16 text-right">~{r.daysEst}d</span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs shrink-0 sm:text-right">
+                <div className="flex items-center gap-2 sm:gap-4">
+                  {r.outClinics > 0 && <span className="text-red-600 font-medium">{r.outClinics} stock-out{r.outClinics > 1 ? "s" : ""}</span>}
+                  {r.lowClinics > 0 && <span className="text-amber-600 font-medium">{r.lowClinics} low</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded-full font-bold ${r.riskLabel === "CRITICAL" ? "bg-red-100 text-red-700" : r.riskLabel === "HIGH" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{r.riskLabel}</span>
+                  <span className="text-gray-600 font-medium">~{r.daysEst}d</span>
+                </div>
               </div>
             </div>
           ))}
@@ -772,28 +776,28 @@ function AdminPage({ clinics, setClinics, showToast }) {
                         <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${rec.risk === "CRITICAL" ? "bg-red-100 text-red-700" : rec.risk === "HIGH" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>{rec.risk}</span>
                         <span className="text-sm font-semibold text-gray-900">{rec.medicineName}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 text-sm text-gray-600">
                         <div className="flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
-                          <Building2 className="w-3 h-3 text-emerald-600" />
-                          <span className="font-medium">{rec.sourceName}</span>
-                          <span className="text-emerald-700 text-xs">({clinics.find(c => c.id === rec.sourceClinicId)?.medicines[rec.medicineId]?.stock || 0} {rec.unit})</span>
+                          <Building2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span className="font-medium truncate">{rec.sourceName}</span>
+                          <span className="text-emerald-700 text-xs shrink-0">({clinics.find(c => c.id === rec.sourceClinicId)?.medicines[rec.medicineId]?.stock || 0} {rec.unit})</span>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
+                        <ArrowRight className="w-4 h-4 text-gray-400 shrink-0 hidden sm:block" />
                         <div className="flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-200">
-                          <Building2 className="w-3 h-3 text-red-600" />
-                          <span className="font-medium">{rec.targetName}</span>
-                          <span className="text-red-700 text-xs">({clinics.find(c => c.id === rec.targetClinicId)?.medicines[rec.medicineId]?.stock || 0} {rec.unit})</span>
+                          <Building2 className="w-3 h-3 text-red-600 shrink-0" />
+                          <span className="font-medium truncate">{rec.targetName}</span>
+                          <span className="text-red-700 text-xs shrink-0">({clinics.find(c => c.id === rec.targetClinicId)?.medicines[rec.medicineId]?.stock || 0} {rec.unit})</span>
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">{rec.reason}</p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
                         <span>RSI: <span className="font-bold text-blue-700">{rec.rsi}/100</span></span>
                         <span>{rec.transferQty} {rec.unit}</span>
                         <span>{rec.distance} km · ~{rec.travelMin} min</span>
                         <span>P{rec.costPula}</span>
                       </div>
                     </div>
-                    <button onClick={() => handleApprove(rec)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shrink-0 ml-4">
+                    <button onClick={() => handleApprove(rec)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shrink-0 sm:ml-4 mt-3 sm:mt-0 w-full sm:w-auto justify-center">
                       <CheckCircle2 className="w-4 h-4" /> Approve
                     </button>
                   </div>
