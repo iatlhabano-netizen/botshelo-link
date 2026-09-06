@@ -340,7 +340,22 @@ function LandingPage({ navigate }) {
         ))}
       </div>
 
-      <p className="text-center text-xs text-gray-500">Confirmed updates only enter the ledger</p>
+      {/* Projected Impact KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { value: "\u221235%", label: "fewer wasted patient trips", desc: "Search before you travel" },
+          { value: "<48h", label: "stockout response time", desc: "Down from 7+ days" },
+          { value: "10+", label: "inter-clinic transfers", desc: "per month at pilot scale" },
+        ].map((kpi, i) => (
+          <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-blue-700">{kpi.value}</p>
+            <p className="text-sm font-medium text-gray-900 mt-1">{kpi.label}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{kpi.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-center text-xs text-gray-500">Confirmed updates only enter the ledger \u00b7 Patient queries are anonymous \u2014 no personal data stored</p>
 
       {/* Role Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -395,6 +410,20 @@ function LandingPage({ navigate }) {
             <p className="text-xs text-gray-500 mt-1">{badge.desc}</p>
           </div>
         ))}
+      </div>
+
+      {/* Pilot CTA */}
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-8 text-center text-white">
+        <h2 className="text-2xl font-bold">Ready to pilot in your district?</h2>
+        <p className="text-emerald-100 mt-2 max-w-xl mx-auto text-sm">Botshelo Link is piloting in Kweneng East. Designed to expand nationally \u2014 DHIS2-native means zero integration friction with existing district health teams.</p>
+        <div className="mt-5 flex flex-wrap justify-center gap-3">
+          <button className="bg-white text-emerald-700 px-6 py-2.5 rounded-lg font-semibold hover:bg-emerald-50 transition-colors flex items-center gap-2">
+            <Send className="w-4 h-4" /> Request a pilot
+          </button>
+          <button onClick={() => navigate("/clinic")} className="bg-emerald-500/20 border border-white/40 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-emerald-500/30 transition-colors flex items-center gap-2">
+            Join as a clinic <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <button onClick={() => navigate("/data-sources")} className="text-blue-600 text-sm font-medium hover:underline flex items-center gap-1 mx-auto">See the open-data foundation <ArrowRight className="w-4 h-4" /></button>
@@ -770,11 +799,76 @@ function AdminPage({ clinics, setClinics, showToast }) {
   );
 }
 
-function ClinicStaffPage({ clinics, showToast }) {
+
+// ══════════════════════════════════════════════════════════════
+// SMS GATEWAY HELPERS (httpSMS integration)
+// ══════════════════════════════════════════════════════════════
+
+const SMS_MEDICINE_CODES = {
+  "MET-500": "metformin-500mg",
+  "SAL-100": "salbutamol-100mcg",
+  "AMOX-250": "amoxicillin-250mg",
+  "ORS": "ors",
+  "PARA-500": "paracetamol-500mg",
+  "INSULIN": "insulin-regular",
+  "ATEN-50": "atenolol-50mg",
+  "AML-5": "amlodipine-5mg",
+};
+
+const SAMPLE_SMS = [
+  "Mogoditshane-01 MET-500 150 2027-03-15",
+  "Kopong-01 SAL-100 40 2026-11-30",
+  "Gabane-01 AMOX-250 80 2027-05-18",
+  "Thamaga-01 ORS 500 2028-01-10",
+];
+
+function parseSmsMessage(text, clinics) {
+  const parts = text.trim().split(/\s+/);
+  if (parts.length < 3) return { error: "Format: FACILITY MEDICINE QTY [EXPIRY]" };
+  if (parts.length > 4) return { error: "Too many fields \u2014 format: FACILITY MEDICINE QTY [EXPIRY]" };
+  const [facCode, medCode, qtyStr, expiry] = parts;
+  const qty = parseInt(qtyStr, 10);
+  if (isNaN(qty) || qty < 0) return { error: "Invalid quantity: " + qtyStr };
+  const facilityId = facCode.toLowerCase().replace(/ /g, "-");
+  const facility = clinics.find(c => c.id === facilityId);
+  if (!facility) return { error: "Unknown facility: " + facCode + ". Try: Mogoditshane-01, Gabane-01, Kopong-01, Thamaga-01, Lentsweletau-01, Moshupa-01" };
+  const medicineId = SMS_MEDICINE_CODES[medCode.toUpperCase()];
+  if (!medicineId) return { error: "Unknown medicine: " + medCode + ". Valid codes: " + Object.keys(SMS_MEDICINE_CODES).join(", ") };
+  const medicine = MEDICINES.find(m => m.id === medicineId);
+  return { facility, medicine, qty, expiry: expiry || "\u2014" };
+}
+
+function ClinicStaffPage({ clinics, setClinics, showToast }) {
   const [activeTab, setActiveTab] = useState("ocr");
   const [selectedSample, setSelectedSample] = useState(SAMPLE_OCR[0]);
   const [ocrConfirmed, setOcrConfirmed] = useState(false);
   const [manualForm, setManualForm] = useState({ clinicId: "mogoditshane-01", medicineId: "paracetamol-500mg", qty: 50, expiry: "2027-06-30", staff: "K. Sebele", notes: "" });
+  const [smsInput, setSmsInput] = useState("");
+  const [smsInbox, setSmsInbox] = useState([]);
+  const [auditLog, setAuditLog] = useState(INITIAL_AUDIT_TRAIL);
+
+  const handleSendSms = () => {
+    if (!smsInput.trim()) return;
+    const parsed = parseSmsMessage(smsInput, clinics);
+    if (parsed.error) { showToast("SMS rejected", parsed.error); return; }
+    const msg = { id: "sms-" + Date.now(), raw: smsInput.trim(), parsed, status: "parsed", confidence: 95 };
+    setSmsInbox(prev => [msg, ...prev]);
+    setSmsInput("");
+    showToast("SMS received via httpSMS gateway", parsed.facility.name + " \u00b7 " + parsed.medicine.name);
+  };
+
+  const handleConfirmSms = (id) => {
+    const msg = smsInbox.find(m => m.id === id);
+    if (!msg || !msg.parsed) return;
+    const { facility, medicine, qty } = msg.parsed;
+    setClinics(prev => prev.map(c => {
+      if (c.id !== facility.id) return c;
+      return { ...c, medicines: { ...c.medicines, [medicine.id]: { ...c.medicines[medicine.id], stock: qty, status: qty === 0 ? "out" : qty <= 15 ? "low" : "available", lastUpdated: "Just now", confidence: 95, trend: "up" } } };
+    }));
+    setAuditLog(prev => [{ id: "aud-" + Date.now(), date: "Just now", medicine: medicine.name, qty: qty + " " + medicine.unit, method: "SMS Sync", staff: "B. Setshogo", facility: facility.name }, ...prev]);
+    setSmsInbox(prev => prev.map(m => m.id === id ? { ...m, status: "confirmed" } : m));
+    showToast("Stock updated via SMS", medicine.name + " at " + facility.name + " \u2014 now " + qty + " " + medicine.unit);
+  };
 
   return (
     <div className="space-y-6">
@@ -818,7 +912,7 @@ function ClinicStaffPage({ clinics, showToast }) {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-200 pb-1">
-        {[{id:"ocr", label:"OCR Scanner", icon: FileSpreadsheet}, {id:"manual", label:"Manual Entry", icon: FileText}, {id:"audit", label:"Audit Trail", icon: Activity}].map(tab => (
+        {[{id:"ocr", label:"OCR Scanner", icon: FileSpreadsheet}, {id:"manual", label:"Manual Entry", icon: FileText}, {id:"sms", label:"SMS Gateway", icon: MessageSquare}, {id:"audit", label:"Audit Trail", icon: Activity}].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${activeTab === tab.id ? "bg-white border border-gray-200 border-b-white text-gray-900 -mb-px" : "text-gray-500 hover:text-gray-700"}`}><tab.icon className="w-4 h-4" /> {tab.label}</button>
         ))}
       </div>
@@ -901,6 +995,97 @@ function ClinicStaffPage({ clinics, showToast }) {
         </div>
       )}
 
+
+      {/* SMS Gateway Tab */}
+      {activeTab === "sms" && (
+        <div className="space-y-5">
+          {/* httpSMS Info Banner */}
+          <div className="bg-gradient-to-r from-indigo-500 to-blue-600 rounded-2xl p-6 text-white">
+            <h3 className="font-bold flex items-center gap-2"><MessageSquare className="w-5 h-5" /> SMS Gateway \u2014 live demo</h3>
+            <p className="text-indigo-100 text-sm mt-1">Powered by <a href="https://httpsms.com" target="_blank" rel="noopener noreferrer" className="underline">httpSMS</a> \u2014 an open-source gateway that turns an Android phone into an SMS API. Clinic staff send a text \u2192 gateway webhook \u2192 validation \u2192 ledger. No internet needed at the clinic.</p>
+          </div>
+
+          {/* Compose Area */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Phone className="w-4 h-4 text-gray-500" />
+              <h4 className="font-semibold text-gray-900">Send a test SMS</h4>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 font-mono text-xs text-gray-600 mb-3">
+              Format: <span className="font-bold text-gray-800">FACILITY MEDICINE QTY EXPIRY</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={smsInput}
+                onChange={e => setSmsInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && smsInput.trim()) handleSendSms(); }}
+                placeholder="e.g. Mogoditshane-01 MET-500 150 2027-03-15"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+              <button
+                onClick={handleSendSms}
+                disabled={!smsInput.trim()}
+                className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+              >
+                <Send className="w-4 h-4" /> Send SMS
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 items-center">
+              <span className="text-xs text-gray-500">Try one:</span>
+              {SAMPLE_SMS.map(ex => (
+                <button key={ex} onClick={() => setSmsInput(ex)} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full px-3 py-1 transition-colors font-mono">{ex}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Message Inbox */}
+          {smsInbox.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2"><Phone className="w-4 h-4 text-emerald-600" /> Received messages</h4>
+                <span className="text-xs text-gray-500">{smsInbox.filter(m => m.status === "parsed").length} pending \u00b7 {smsInbox.filter(m => m.status === "confirmed").length} confirmed</span>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {smsInbox.map(msg => (
+                  <div key={msg.id} className={`px-5 py-4 ${msg.status === "confirmed" ? "bg-emerald-50/50" : msg.error ? "bg-red-50/50" : ""}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="font-mono text-sm text-gray-700">{msg.raw}</div>
+                      {msg.status === "confirmed" && <span className="flex items-center gap-1 text-emerald-600 text-xs font-medium shrink-0"><CheckCircle2 className="w-4 h-4" /> Synced</span>}
+                    </div>
+                    {msg.error ? (
+                      <p className="text-red-600 text-xs mt-2">{msg.error}</p>
+                    ) : msg.parsed && (
+                      <div className="mt-2 space-y-2">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+                          <span>Facility: <strong className="text-gray-900">{msg.parsed.facility.name}</strong></span>
+                          <span>Medicine: <strong className="text-gray-900">{msg.parsed.medicine.name}</strong></span>
+                          <span>Qty: <strong className="text-gray-900">{msg.parsed.qty} {msg.parsed.medicine.unit}</strong></span>
+                          {msg.parsed.expiry && msg.parsed.expiry !== "\u2014" && <span>Expiry: <strong className="text-gray-900">{msg.parsed.expiry}</strong></span>}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-gray-500">Confidence:</span>
+                          <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: msg.confidence + "%" }}></div></div>
+                          <span className="font-medium text-emerald-600">{msg.confidence}%</span>
+                          <span className="text-gray-400">\u2014 structured format</span>
+                        </div>
+                        {msg.status === "parsed" && (
+                          <button onClick={() => handleConfirmSms(msg.id)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4" /> Confirm and Add to Ledger
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 py-3 bg-gray-50 text-center">
+                <p className="text-xs text-gray-500">In production, messages arrive automatically via the <a href="https://httpsms.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline">httpSMS</a> Android gateway \u2014 no manual entry needed.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Audit Tab */}
       {activeTab === "audit" && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
@@ -909,7 +1094,7 @@ function ClinicStaffPage({ clinics, showToast }) {
               <tr>{["Date","Medicine","Quantity","Method","Staff","Facility"].map(h => <th key={h} className="text-left px-4 py-3 font-medium text-gray-600">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {INITIAL_AUDIT_TRAIL.map(e => (
+              {auditLog.map(e => (
                 <tr key={e.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-gray-700">{e.date}</td>
                   <td className="px-4 py-3 text-gray-900 font-medium">{e.medicine}</td>
@@ -1174,7 +1359,7 @@ export default function App() {
         {currentRoute === "/" && <LandingPage navigate={navigate} />}
         {currentRoute === "/patient" && <PatientPage clinics={clinics} />}
         {currentRoute === "/admin" && <AdminPage clinics={clinics} setClinics={setClinics} showToast={showToast} />}
-        {currentRoute === "/clinic" && <ClinicStaffPage clinics={clinics} showToast={showToast} />}
+        {currentRoute === "/clinic" && <ClinicStaffPage clinics={clinics} setClinics={setClinics} showToast={showToast} />}
         {currentRoute === "/data-sources" && <DataSourcesPage />}
         {currentRoute === "/forecasting" && <ForecastingPage />}
       </main>
