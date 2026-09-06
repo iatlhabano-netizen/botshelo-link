@@ -343,7 +343,7 @@ function LandingPage({ navigate }) {
       {/* Projected Impact KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { value: "\u221235%", label: "fewer wasted patient trips", desc: "Search before you travel" },
+          { value: "−35%", label: "fewer wasted patient trips", desc: "Search before you travel" },
           { value: "<48h", label: "stockout response time", desc: "Down from 7+ days" },
           { value: "10+", label: "inter-clinic transfers", desc: "per month at pilot scale" },
         ].map((kpi, i) => (
@@ -355,7 +355,7 @@ function LandingPage({ navigate }) {
         ))}
       </div>
 
-      <p className="text-center text-xs text-gray-500">Confirmed updates only enter the ledger \u00b7 Patient queries are anonymous \u2014 no personal data stored</p>
+      <p className="text-center text-xs text-gray-500">Confirmed updates only enter the ledger · Patient queries are anonymous — no personal data stored</p>
 
       {/* Role Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -415,7 +415,7 @@ function LandingPage({ navigate }) {
       {/* Pilot CTA */}
       <div className="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-8 text-center text-white">
         <h2 className="text-2xl font-bold">Ready to pilot in your district?</h2>
-        <p className="text-emerald-100 mt-2 max-w-xl mx-auto text-sm">Botshelo Link is piloting in Kweneng East. Designed to expand nationally \u2014 DHIS2-native means zero integration friction with existing district health teams.</p>
+        <p className="text-emerald-100 mt-2 max-w-xl mx-auto text-sm">Botshelo Link is piloting in Kweneng East. Designed to expand nationally — DHIS2-native means zero integration friction with existing district health teams.</p>
         <div className="mt-5 flex flex-wrap justify-center gap-3">
           <button className="bg-white text-emerald-700 px-6 py-2.5 rounded-lg font-semibold hover:bg-emerald-50 transition-colors flex items-center gap-2">
             <Send className="w-4 h-4" /> Request a pilot
@@ -825,7 +825,7 @@ const SAMPLE_SMS = [
 function parseSmsMessage(text, clinics) {
   const parts = text.trim().split(/\s+/);
   if (parts.length < 3) return { error: "Format: FACILITY MEDICINE QTY [EXPIRY]" };
-  if (parts.length > 4) return { error: "Too many fields \u2014 format: FACILITY MEDICINE QTY [EXPIRY]" };
+  if (parts.length > 4) return { error: "Too many fields — format: FACILITY MEDICINE QTY [EXPIRY]" };
   const [facCode, medCode, qtyStr, expiry] = parts;
   const qty = parseInt(qtyStr, 10);
   if (isNaN(qty) || qty < 0) return { error: "Invalid quantity: " + qtyStr };
@@ -835,7 +835,7 @@ function parseSmsMessage(text, clinics) {
   const medicineId = SMS_MEDICINE_CODES[medCode.toUpperCase()];
   if (!medicineId) return { error: "Unknown medicine: " + medCode + ". Valid codes: " + Object.keys(SMS_MEDICINE_CODES).join(", ") };
   const medicine = MEDICINES.find(m => m.id === medicineId);
-  return { facility, medicine, qty, expiry: expiry || "\u2014" };
+  return { facility, medicine, qty, expiry: expiry || "—" };
 }
 
 function ClinicStaffPage({ clinics, setClinics, showToast }) {
@@ -854,7 +854,7 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
     const msg = { id: "sms-" + Date.now(), raw: smsInput.trim(), parsed, status: "parsed", confidence: 95 };
     setSmsInbox(prev => [msg, ...prev]);
     setSmsInput("");
-    showToast("SMS received via httpSMS gateway", parsed.facility.name + " \u00b7 " + parsed.medicine.name);
+    showToast("SMS received via httpSMS gateway", parsed.facility.name + " · " + parsed.medicine.name);
   };
 
   const handleConfirmSms = (id) => {
@@ -867,7 +867,7 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
     }));
     setAuditLog(prev => [{ id: "aud-" + Date.now(), date: "Just now", medicine: medicine.name, qty: qty + " " + medicine.unit, method: "SMS Sync", staff: "B. Setshogo", facility: facility.name }, ...prev]);
     setSmsInbox(prev => prev.map(m => m.id === id ? { ...m, status: "confirmed" } : m));
-    showToast("Stock updated via SMS", medicine.name + " at " + facility.name + " \u2014 now " + qty + " " + medicine.unit);
+    showToast("Stock updated via SMS", medicine.name + " at " + facility.name + " — now " + qty + " " + medicine.unit);
   };
 
   return (
@@ -1001,8 +1001,8 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
         <div className="space-y-5">
           {/* httpSMS Info Banner */}
           <div className="bg-gradient-to-r from-indigo-500 to-blue-600 rounded-2xl p-6 text-white">
-            <h3 className="font-bold flex items-center gap-2"><MessageSquare className="w-5 h-5" /> SMS Gateway \u2014 live demo</h3>
-            <p className="text-indigo-100 text-sm mt-1">Powered by <a href="https://httpsms.com" target="_blank" rel="noopener noreferrer" className="underline">httpSMS</a> \u2014 an open-source gateway that turns an Android phone into an SMS API. Clinic staff send a text \u2192 gateway webhook \u2192 validation \u2192 ledger. No internet needed at the clinic.</p>
+            <h3 className="font-bold flex items-center gap-2"><MessageSquare className="w-5 h-5" /> SMS Gateway — live demo</h3>
+            <p className="text-indigo-100 text-sm mt-1">Powered by <a href="https://httpsms.com" target="_blank" rel="noopener noreferrer" className="underline">httpSMS</a> — an open-source gateway that turns an Android phone into an SMS API. Clinic staff send a text → gateway webhook → validation → ledger. No internet needed at the clinic.</p>
           </div>
 
           {/* Compose Area */}
@@ -1043,7 +1043,7 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h4 className="font-semibold text-gray-900 flex items-center gap-2"><Phone className="w-4 h-4 text-emerald-600" /> Received messages</h4>
-                <span className="text-xs text-gray-500">{smsInbox.filter(m => m.status === "parsed").length} pending \u00b7 {smsInbox.filter(m => m.status === "confirmed").length} confirmed</span>
+                <span className="text-xs text-gray-500">{smsInbox.filter(m => m.status === "parsed").length} pending · {smsInbox.filter(m => m.status === "confirmed").length} confirmed</span>
               </div>
               <div className="divide-y divide-gray-100">
                 {smsInbox.map(msg => (
@@ -1060,13 +1060,13 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
                           <span>Facility: <strong className="text-gray-900">{msg.parsed.facility.name}</strong></span>
                           <span>Medicine: <strong className="text-gray-900">{msg.parsed.medicine.name}</strong></span>
                           <span>Qty: <strong className="text-gray-900">{msg.parsed.qty} {msg.parsed.medicine.unit}</strong></span>
-                          {msg.parsed.expiry && msg.parsed.expiry !== "\u2014" && <span>Expiry: <strong className="text-gray-900">{msg.parsed.expiry}</strong></span>}
+                          {msg.parsed.expiry && msg.parsed.expiry !== "—" && <span>Expiry: <strong className="text-gray-900">{msg.parsed.expiry}</strong></span>}
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                           <span className="text-gray-500">Confidence:</span>
                           <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: msg.confidence + "%" }}></div></div>
                           <span className="font-medium text-emerald-600">{msg.confidence}%</span>
-                          <span className="text-gray-400">\u2014 structured format</span>
+                          <span className="text-gray-400">— structured format</span>
                         </div>
                         {msg.status === "parsed" && (
                           <button onClick={() => handleConfirmSms(msg.id)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-1.5">
@@ -1079,7 +1079,7 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
                 ))}
               </div>
               <div className="px-5 py-3 bg-gray-50 text-center">
-                <p className="text-xs text-gray-500">In production, messages arrive automatically via the <a href="https://httpsms.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline">httpSMS</a> Android gateway \u2014 no manual entry needed.</p>
+                <p className="text-xs text-gray-500">In production, messages arrive automatically via the <a href="https://httpsms.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline">httpSMS</a> Android gateway — no manual entry needed.</p>
               </div>
             </div>
           )}
