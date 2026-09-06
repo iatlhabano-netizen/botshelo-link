@@ -256,6 +256,7 @@ function TransferModal({ transfer, clinics, onClose, onApprove, showToast }) {
           <div className="bg-blue-50 rounded-lg p-3">
             <p className="text-lg font-bold text-blue-700">{rsi}<span className="text-xs">/100</span></p>
             <p className="text-xs text-blue-600">RSI Score</p>
+            <p className="text-[10px] text-blue-400">Redistribution Suitability Index</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-lg font-bold text-gray-700">{travelMin}<span className="text-xs"> min</span></p>
@@ -525,8 +526,8 @@ function PatientPage({ clinics }) {
             </div>
             {clinic.medData && (
               <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div><p className="text-gray-500 text-xs">Stock</p><p className="font-semibold text-gray-900">{clinic.medData.stock} {clinic.medData.unit}</p></div>
-                <div><p className="text-gray-500 text-xs">Confidence</p><ConfidenceMeter value={clinic.medData.confidence} /></div>
+                <div><p className="text-gray-500 text-xs">Stock</p><p className="font-semibold text-gray-900">{clinic.medData.stock} {clinic.medData.unit}</p><p className="text-[10px] text-gray-400 mt-0.5">Updated {clinic.medData.lastUpdated}</p></div>
+                <div><p className="text-gray-500 text-xs">Match Score</p><ConfidenceMeter value={clinic.medData.confidence} /></div>
                 <div><p className="text-gray-500 text-xs">Trend</p><div className="flex items-center gap-1"><TrendIcon trend={clinic.medData.trend} /><span className="text-xs capitalize">{clinic.medData.trend}</span></div></div>
                 <div className="flex gap-2 items-end">
                   <a href={`https://www.google.com/maps/dir/?api=1&destination=${clinic.coords[0]},${clinic.coords[1]}`} target="_blank" rel="noopener noreferrer" className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg flex items-center gap-1 text-gray-700"><Route className="w-3 h-3" /> Directions</a>
@@ -1063,7 +1064,7 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
                           {msg.parsed.expiry && msg.parsed.expiry !== "—" && <span>Expiry: <strong className="text-gray-900">{msg.parsed.expiry}</strong></span>}
                         </div>
                         <div className="flex items-center gap-2 text-xs">
-                          <span className="text-gray-500">Confidence:</span>
+                          <span className="text-gray-500">Match Score:</span>
                           <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: msg.confidence + "%" }}></div></div>
                           <span className="font-medium text-emerald-600">{msg.confidence}%</span>
                           <span className="text-gray-400">— structured format</span>
@@ -1369,7 +1370,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 py-6 space-y-3">
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-500">
             <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Zero patient data — facility aggregates only</span>
-            <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Data Protection Act 2018 compliant</span>
+            <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Privacy by design · No patient-level data</span>
             <span className="flex items-center gap-1"><Database className="w-3 h-3" /> DHIS2 ADX schema compatible</span>
             <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> Every update audited</span>
           </div>
