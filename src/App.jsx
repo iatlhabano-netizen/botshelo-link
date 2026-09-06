@@ -739,9 +739,9 @@ function AdminPage({ clinics, setClinics, showToast }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 pb-1">
-        {[{id:"transfer", label:`Transfers (${activeRecommendations.length})`, icon: Truck}, {id:"map", label:"District Map", icon: Globe2}, {id:"log", label:`Log (${transfersLog.length})`, icon: Activity}].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${activeTab === tab.id ? "bg-white border border-gray-200 border-b-white text-gray-900 -mb-px" : "text-gray-500 hover:text-gray-700"}`}><tab.icon className="w-4 h-4" /> {tab.label}</button>
+      <div className="flex gap-2 border-b border-gray-200 pb-1 overflow-x-auto scrollbar-none">
+        {[{id:"transfer", label:`Transfers (${activeRecommendations.length})`, mobileLabel:`Transfers`, icon: Truck}, {id:"map", label:"District Map", mobileLabel:"Map", icon: Globe2}, {id:"log", label:`Log (${transfersLog.length})`, mobileLabel:"Log", icon: Activity}].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === tab.id ? "bg-white border border-gray-200 border-b-white text-gray-900 -mb-px" : "text-gray-500 hover:text-gray-700"}`}><tab.icon className="w-4 h-4" /> <span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.mobileLabel || tab.label}</span></button>
         ))}
       </div>
 
@@ -989,9 +989,9 @@ function ClinicStaffPage({ clinics, setClinics, showToast }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 pb-1">
-        {[{id:"ocr", label:"OCR Scanner", icon: FileSpreadsheet}, {id:"manual", label:"Manual Entry", icon: FileText}, {id:"sms", label:"SMS Gateway", icon: MessageSquare}, {id:"fb", label:"Messenger", icon: MessageSquare}, {id:"audit", label:"Audit Trail", icon: Activity}].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${activeTab === tab.id ? "bg-white border border-gray-200 border-b-white text-gray-900 -mb-px" : "text-gray-500 hover:text-gray-700"}`}><tab.icon className="w-4 h-4" /> {tab.label}</button>
+      <div className="flex gap-2 border-b border-gray-200 pb-1 overflow-x-auto scrollbar-none">
+        {[{id:"ocr", label:"OCR Scanner", mobileLabel:"OCR", icon: FileSpreadsheet}, {id:"manual", label:"Manual Entry", mobileLabel:"Manual", icon: FileText}, {id:"sms", label:"SMS Gateway", mobileLabel:"SMS", icon: MessageSquare}, {id:"fb", label:"Messenger", mobileLabel:"FB", icon: MessageSquare}, {id:"audit", label:"Audit Trail", mobileLabel:"Audit", icon: Activity}].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeTab === tab.id ? "bg-white border border-gray-200 border-b-white text-gray-900 -mb-px" : "text-gray-500 hover:text-gray-700"}`}><tab.icon className="w-4 h-4" /> <span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.mobileLabel || tab.label}</span></button>
         ))}
       </div>
 
