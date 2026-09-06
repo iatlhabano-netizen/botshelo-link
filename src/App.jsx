@@ -672,7 +672,7 @@ function AdminPage({ clinics, setClinics, showToast }) {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2"><ShieldCheck className="w-6 h-6" /> Transfer Command Center</h1>
-            <p className="text-rose-100 mt-1 italic">Boitekanelo kwa Sechaba — See the district before the shortage spreads.</p>
+            <p className="text-rose-100 mt-1 italic">Boitekanelo Jwa Sechaba — See the district before the shortage spreads.</p>
           </div>
           <button onClick={handleReset} className="bg-white/10 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/20 transition-colors flex items-center gap-2">
             <RefreshCw className="w-4 h-4" /> Reset Simulation
