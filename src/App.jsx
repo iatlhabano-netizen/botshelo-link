@@ -386,6 +386,28 @@ function LandingPage({ navigate }) {
         </div>
       </div>
 
+      {/* Data → Action Flow */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-4 text-center">From data to action</h2>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-0">
+          {[
+            { icon: "📊", label: "Open Data", desc: "Facility, climate, population" },
+            { icon: "⚠️", label: "Risk Detected", desc: "Shortage predicted" },
+            { icon: "🔄", label: "Recommendation", desc: "Transfer suggested" },
+            { icon: "✅", label: "Action Taken", desc: "Stock redistributed" },
+          ].map((step, i) => (
+            <React.Fragment key={i}>
+              <div className="text-center px-4 py-2 min-w-[120px]">
+                <span className="text-2xl">{step.icon}</span>
+                <p className="text-sm font-semibold text-gray-900 mt-1">{step.label}</p>
+                <p className="text-xs text-gray-500">{step.desc}</p>
+              </div>
+              {i < 3 && <ArrowRight className="w-5 h-5 text-gray-300 shrink-0 hidden sm:block" />}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
       {/* Maternal Mortality Stat */}
       <div className="bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 rounded-2xl p-6">
         <div className="flex items-start gap-4">
@@ -527,7 +549,7 @@ function PatientPage({ clinics }) {
             {clinic.medData && (
               <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div><p className="text-gray-500 text-xs">Stock</p><p className="font-semibold text-gray-900">{clinic.medData.stock} {clinic.medData.unit}</p><p className="text-[10px] text-gray-400 mt-0.5">Updated {clinic.medData.lastUpdated}</p></div>
-                <div><p className="text-gray-500 text-xs">Match Score</p><ConfidenceMeter value={clinic.medData.confidence} /></div>
+                <div><p className="text-gray-500 text-xs flex items-center gap-1">Match Score <span className="text-[10px] text-gray-400" title="Based on: stock availability (40%), data freshness (25%), distance (20%), facility suitability (15%)">ⓘ</span></p><ConfidenceMeter value={clinic.medData.confidence} /><p className="text-[10px] text-gray-400 mt-0.5">Stock · Freshness · Distance · Facility</p></div>
                 <div><p className="text-gray-500 text-xs">Trend</p><div className="flex items-center gap-1"><TrendIcon trend={clinic.medData.trend} /><span className="text-xs capitalize">{clinic.medData.trend}</span></div></div>
                 <div className="flex gap-2 items-end">
                   <a href={`https://www.google.com/maps/dir/?api=1&destination=${clinic.coords[0]},${clinic.coords[1]}`} target="_blank" rel="noopener noreferrer" className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg flex items-center gap-1 text-gray-700"><Route className="w-3 h-3" /> Directions</a>
@@ -586,6 +608,27 @@ function AdminPage({ clinics, setClinics, showToast }) {
       });
     });
     return recs.sort((a, b) => (a.risk === "CRITICAL" ? 0 : 1) - (b.risk === "CRITICAL" ? 0 : 1) || b.rsi - a.rsi);
+  }, [clinics]);
+
+  // District medicine risk from current clinic state
+  const medicineRisk = useMemo(() => {
+    const risk = {};
+    clinics.forEach(c => {
+      Object.entries(c.medicines).forEach(([medId, med]) => {
+        if (!risk[medId]) risk[medId] = { medicineId: medId, worst: "available", clinics: 0, outClinics: 0, lowClinics: 0, totalStock: 0 };
+        risk[medId].clinics++;
+        risk[medId].totalStock += med.stock;
+        if (med.status === "out") { risk[medId].outClinics++; risk[medId].worst = "out"; }
+        else if (med.status === "low" && risk[medId].worst !== "out") { risk[medId].lowClinics++; risk[medId].worst = "low"; }
+      });
+    });
+    return Object.values(risk).map(r => {
+      const medMeta = MEDICINES.find(m => m.id === r.medicineId);
+      const avgStock = Math.round(r.totalStock / r.clinics);
+      const riskLabel = r.outClinics > 0 ? "CRITICAL" : r.lowClinics > 0 ? "HIGH" : "OK";
+      const daysEst = r.outClinics > 0 ? Math.max(0, Math.round(avgStock / 25)) : r.lowClinics > 0 ? Math.round(avgStock / 15) : Math.round(avgStock / 8);
+      return { ...r, name: medMeta?.name || r.medicineId, unit: medMeta?.unit || "units", riskLabel, daysEst, avgStock };
+    }).sort((a, b) => (a.riskLabel === "CRITICAL" ? 0 : a.riskLabel === "HIGH" ? 1 : 2) - (b.riskLabel === "CRITICAL" ? 0 : b.riskLabel === "HIGH" ? 1 : 2));
   }, [clinics]);
 
   const activeRecommendations = transferRecommendations.filter(r => !approvedIds.includes(r.id));
@@ -658,6 +701,36 @@ function AdminPage({ clinics, setClinics, showToast }) {
         <div className="bg-white rounded-xl border border-blue-200 p-4 text-center">
           <p className="text-3xl font-bold text-blue-600">{activeRecommendations.length}</p>
           <p className="text-xs text-gray-500 mt-1">Pending Transfers</p>
+        </div>
+      </div>
+
+      {/* District Medicine Risk */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-500" /> District Medicine Risk</h3>
+          <span className="text-xs text-gray-500">{medicineRisk.filter(r => r.riskLabel !== "OK").length} medicines need attention</span>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {medicineRisk.map(r => (
+            <div key={r.medicineId} className={`px-5 py-3 flex items-center justify-between ${r.riskLabel === "CRITICAL" ? "bg-red-50/50" : r.riskLabel === "HIGH" ? "bg-amber-50/50" : ""}`}>
+              <div className="flex items-center gap-3">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${r.riskLabel === "CRITICAL" ? "bg-red-500" : r.riskLabel === "HIGH" ? "bg-amber-500" : "bg-emerald-500"}`}></span>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{r.name}</p>
+                  <p className="text-xs text-gray-500">{r.totalStock} {r.unit} across {r.clinics} facilities</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-xs">
+                {r.outClinics > 0 && <span className="text-red-600 font-medium">{r.outClinics} stock-out{r.outClinics > 1 ? "s" : ""}</span>}
+                {r.lowClinics > 0 && <span className="text-amber-600 font-medium">{r.lowClinics} low</span>}
+                <span className={`px-2 py-0.5 rounded-full font-bold ${r.riskLabel === "CRITICAL" ? "bg-red-100 text-red-700" : r.riskLabel === "HIGH" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{r.riskLabel}</span>
+                <span className="text-gray-600 font-medium w-16 text-right">~{r.daysEst}d</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="px-5 py-2 bg-gray-50 text-center">
+          <p className="text-[10px] text-gray-400">Estimated days to stock-out based on current trends · Avg. {Math.round(medicineRisk.reduce((s, r) => s + r.avgStock, 0) / medicineRisk.length)} units/facility</p>
         </div>
       </div>
 
