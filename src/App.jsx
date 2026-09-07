@@ -461,6 +461,7 @@ function LandingPage({ navigate }) {
 function PatientPage({ clinics }) {
   const [selectedMedicine, setSelectedMedicine] = useState("salbutamol-100mcg");
   const [searchQuery, setSearchQuery] = useState("");
+  const [scoreInfoFor, setScoreInfoFor] = useState(null);
 
   const medInfo = MEDICINES.find(m => m.id === selectedMedicine);
 
@@ -549,7 +550,23 @@ function PatientPage({ clinics }) {
             {clinic.medData && (
               <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div><p className="text-gray-500 text-xs">Stock</p><p className="font-semibold text-gray-900">{clinic.medData.stock} {clinic.medData.unit}</p><p className="text-[10px] text-gray-400 mt-0.5">Updated {clinic.medData.lastUpdated}</p></div>
-                <div><p className="text-gray-500 text-xs flex items-center gap-1">Match Score <span className="text-[10px] text-gray-400" title="Based on: stock availability (40%), data freshness (25%), distance (20%), facility suitability (15%)">ⓘ</span></p><ConfidenceMeter value={clinic.medData.confidence} /><p className="text-[10px] text-gray-400 mt-0.5">Stock · Freshness · Distance · Facility</p></div>
+                <div><p className="text-gray-500 text-xs flex items-center gap-1">Match Score
+                  <button onClick={() => setScoreInfoFor(scoreInfoFor === clinic.id ? null : clinic.id)} title="How is match score calculated?" className="text-gray-400 hover:text-blue-600 rounded-full w-4 h-4 flex items-center justify-center text-[11px] font-bold border border-gray-300 leading-none">i</button>
+                </p>
+                <ConfidenceMeter value={clinic.medData.confidence} />
+                {scoreInfoFor === clinic.id && (
+                  <div className="mt-2 space-y-1.5 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-[11px] font-semibold text-blue-800">Match score = how strongly we recommend this facility</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-blue-700"><span>Stock availability</span><span className="font-semibold">40%</span></div>
+                      <div className="flex items-center justify-between text-[10px] text-blue-700"><span>Data freshness</span><span className="font-semibold">25%</span></div>
+                      <div className="flex items-center justify-between text-[10px] text-blue-700"><span>Distance</span><span className="font-semibold">20%</span></div>
+                      <div className="flex items-center justify-between text-[10px] text-blue-700"><span>Facility suitability</span><span className="font-semibold">15%</span></div>
+                    </div>
+                    <p className="text-[10px] text-blue-500 italic">Higher score = better match for your trip.</p>
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400 mt-0.5">Stock · Freshness · Distance · Facility</p></div>
                 <div><p className="text-gray-500 text-xs">Trend</p><div className="flex items-center gap-1"><TrendIcon trend={clinic.medData.trend} /><span className="text-xs capitalize">{clinic.medData.trend}</span></div></div>
                 <div className="flex gap-2 items-end">
                   <a href={`https://www.google.com/maps/dir/?api=1&destination=${clinic.coords[0]},${clinic.coords[1]}`} target="_blank" rel="noopener noreferrer" className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg flex items-center gap-1 text-gray-700"><Route className="w-3 h-3" /> Directions</a>
@@ -770,8 +787,8 @@ function AdminPage({ clinics, setClinics, showToast }) {
               </div>
               {filteredRecs.map(rec => (
                 <div key={rec.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${rec.risk === "CRITICAL" ? "bg-red-100 text-red-700" : rec.risk === "HIGH" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>{rec.risk}</span>
                         <span className="text-sm font-semibold text-gray-900">{rec.medicineName}</span>
@@ -797,7 +814,7 @@ function AdminPage({ clinics, setClinics, showToast }) {
                         <span>P{rec.costPula}</span>
                       </div>
                     </div>
-                    <button onClick={() => handleApprove(rec)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shrink-0 sm:ml-4 mt-3 sm:mt-0 w-full sm:w-auto justify-center">
+                    <button onClick={() => handleApprove(rec)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shrink-0 sm:ml-4 mt-3 sm:mt-0 w-full sm:w-auto justify-center self-stretch sm:self-auto">
                       <CheckCircle2 className="w-4 h-4" /> Approve
                     </button>
                   </div>
